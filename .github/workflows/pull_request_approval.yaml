@@ -1,0 +1,441 @@
+name: TechLeads Review Management
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+    branches: [main, integrator, "test/release-*"]
+  pull_request_review:
+    types: [submitted]
+    branches: [main, integrator, "test/release-*"]
+
+env:
+  PROTECTED_BRANCHES: '["main", "integrator"]'
+  TEAM_SLUG: 'techleads'
+
+jobs:
+  manage-reviews:
+    runs-on: ubuntu-latest
+    steps:
+      - name: TechLeads Review Management
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.IS_GITHUB_TOKEN }}
+          script: |
+            // Configuración común
+            const protectedBranches = JSON.parse(process.env.PROTECTED_BRANCHES);
+            const teamSlug = process.env.TEAM_SLUG;
+            const targetBranch = context.payload.pull_request.base.ref;
+            const isTestRelease = targetBranch.startsWith('test/release-');
+            const isProtectedBranch = protectedBranches.includes(targetBranch) || isTestRelease;
+            
+            console.log(`🎯 Rama destino: ${targetBranch}`);
+            console.log(`🔒 Rama protegida: ${isProtectedBranch}`);
+            
+            if (!isProtectedBranch) {
+              console.log(`ℹ️ La rama ${targetBranch} no requiere gestión de TechLeads`);
+              return;
+            }
+            
+            // Función para obtener información del equipo TechLeads
+            async function getTechLeadsInfo() {
+              try {
+                const team = await github.rest.teams.getByName({
+                  org: context.repo.owner,
+                  team_slug: teamSlug
+                });
+                
+                const teamMembers = await github.rest.teams.listMembersInOrg({
+                  org: context.repo.owner,
+                  team_slug: teamSlug
+                });
+                
+                return {
+                  team: team.data,
+                  members: teamMembers.data.map(member => member.login)
+                };
+              } catch (error) {
+                console.log(`❌ Error al obtener información del equipo: ${error.message}`);
+                throw error;
+              }
+            }
+            
+            // Función para solicitar revisión
+            async function requestReview(teamInfo) {
+              try {
+                await github.rest.pulls.requestReviewers({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.payload.pull_request.number,
+                  team_reviewers: [teamSlug]
+                });
+                console.log(`✅ Revisión solicitada al equipo TechLeads`);
+              } catch (error) {
+                console.log(`❌ Error al solicitar revisión: ${error.message}`);
+              }
+            }
+            
+            // Función para obtener archivos modificados en el PR
+            async function getModifiedFiles() {
+              try {
+                const files = await github.rest.pulls.listFiles({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.payload.pull_request.number
+                });
+                return files.data.map(file => file.filename);
+              } catch (error) {
+                console.log(`❌ Error al obtener archivos modificados: ${error.message}`);
+                return [];
+              }
+            }
+            
+            // Función para obtener reglas de CODEOWNERS
+            async function getCodeOwnersRules() {
+              try {
+                const codeownersContent = await github.rest.repos.getContent({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  path: '.github/CODEOWNERS'
+                });
+                
+                const content = Buffer.from(codeownersContent.data.content, 'base64').toString();
+                console.log(`📄 Contenido de CODEOWNERS:\n${content}`);
+                
+                const rules = [];
+                
+                content.split('\n').forEach((line, index) => {
+                  line = line.trim();
+                  console.log(`📝 Línea ${index + 1}: "${line}"`);
+                  
+                  if (line && !line.startsWith('#')) {
+                    const parts = line.split(/\s+/);
+                    console.log(`🔍 Partes de la línea: [${parts.join(', ')}]`);
+                    
+                    if (parts.length >= 2) {
+                      const pattern = parts[0];
+                      const owners = parts.slice(1);
+                      rules.push({ pattern, owners });
+                      console.log(`✅ Regla agregada: patrón="${pattern}", owners=[${owners.join(', ')}]`);
+                    } else {
+                      console.log(`⚠️ Línea ignorada: no tiene suficientes partes`);
+                    }
+                  } else if (line) {
+                    console.log(`💬 Comentario ignorado: "${line}"`);
+                  }
+                });
+                
+                console.log(`📋 Total de reglas encontradas: ${rules.length}`);
+                return rules;
+              } catch (error) {
+                console.log(`⚠️ No se pudo obtener CODEOWNERS: ${error.message}`);
+                return [];
+              }
+            }
+            
+            // Función para determinar qué equipos son requeridos según CODEOWNERS
+            function getRequiredTeams(modifiedFiles, codeOwnersRules) {
+              const requiredTeams = new Set();
+              
+              console.log(`🔍 Analizando ${modifiedFiles.length} archivos contra ${codeOwnersRules.length} reglas de CODEOWNERS`);
+              
+              modifiedFiles.forEach(file => {
+                console.log(`📄 Analizando archivo: ${file}`);
+                
+                codeOwnersRules.forEach(rule => {
+                  console.log(`🔍 Probando patrón: "${rule.pattern}" contra archivo: "${file}"`);
+                  
+                  let matches = false;
+                  
+                  // Coincidencia de patrones con normalización del prefijo '/'
+                  const normalizedPattern = rule.pattern.replace(/^\//, '');
+                  if (normalizedPattern.endsWith('/')) {
+                    // Para otros patrones que terminan con /
+                    const patternPath = normalizedPattern.slice(0, -1); // Remover la / final
+                    matches = file.startsWith(patternPath + '/');
+                    console.log(`🔍 Patrón de directorio: "${patternPath}/" - Archivo empieza con: ${matches}`);
+                  } else if (normalizedPattern.includes('*')) {
+                    // Para patrones con wildcards, usar regex simple
+                    const regexPattern = normalizedPattern
+                      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+                      .replace(/\*/g, '.*');
+                    const regex = new RegExp('^' + regexPattern + '$');
+                    matches = regex.test(file);
+                    console.log(`🔍 Patrón con wildcard: "${normalizedPattern}" - Regex: /^${regexPattern}$/ - Coincide: ${matches}`);
+                  } else {
+                    // Para patrones exactos
+                    matches = file === normalizedPattern;
+                    console.log(`🔍 Patrón exacto: "${normalizedPattern}" - Archivo: "${file}" - Coincide: ${matches}`);
+                  }
+                  
+                  if (matches) {
+                    console.log(`✅ Coincidencia encontrada para archivo: ${file} con patrón: ${rule.pattern}`);
+                    rule.owners.forEach(owner => {
+                      if (!owner.startsWith('@')) return;
+                      const teamSlug = extractTeamSlug(owner);
+                      if (teamSlug) {
+                        const canonical = `@${context.repo.owner}/${teamSlug}`;
+                        requiredTeams.add(canonical);
+                        console.log(`👥 Agregando equipo requerido: ${canonical}`);
+                      } else {
+                        console.log(`ℹ️ Owner no es equipo válido para esta org: ${owner}`);
+                      }
+                    });
+                  } else {
+                    console.log(`❌ No hay coincidencia para archivo: ${file} con patrón: ${rule.pattern}`);
+                  }
+                });
+              });
+              
+              console.log(`📋 Equipos requeridos encontrados: ${Array.from(requiredTeams).join(', ')}`);
+              return Array.from(requiredTeams);
+            }
+            
+            // Función para obtener miembros de un equipo
+            async function getTeamMembers(teamSlug) {
+              try {
+                const teamMembers = await github.rest.teams.listMembersInOrg({
+                  org: context.repo.owner,
+                  team_slug: teamSlug.toLowerCase()
+                });
+                return teamMembers.data.map(member => member.login);
+              } catch (error) {
+                console.log(`⚠️ No se pudo obtener miembros del equipo ${teamSlug}: ${error.message}`);
+                return [];
+              }
+            }
+            
+            // Extrae el slug de equipo desde referencias tipo "@org/team" y valida que
+            // pertenezca a la misma organización del repositorio. Devuelve el slug en minúsculas.
+            function extractTeamSlug(ownerRef) {
+              if (!ownerRef || !ownerRef.startsWith('@')) return null;
+              const ref = ownerRef.slice(1);
+              const parts = ref.split('/');
+              if (parts.length < 2) {
+                // @username (usuario), no es un equipo
+                return null;
+              }
+              const [org, team] = parts;
+              if (!team) return null;
+              if (String(org).toLowerCase() !== String(context.repo.owner).toLowerCase()) {
+                console.log(`⚠️ Owner ${ownerRef} no pertenece a la organización del repo (${context.repo.owner}), se ignora`);
+                return null;
+              }
+              return String(team).toLowerCase();
+            }
+            
+            // Función para validar aprobaciones
+            async function validateApprovals(teamInfo) {
+              const reviews = await github.rest.pulls.listReviews({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number
+              });
+              
+              const approvals = reviews.data.filter(review => review.state === 'APPROVED');
+              
+              // Obtener archivos modificados y reglas de CODEOWNERS
+              const modifiedFiles = await getModifiedFiles();
+              const codeOwnersRules = await getCodeOwnersRules();
+              const requiredTeams = getRequiredTeams(modifiedFiles, codeOwnersRules);
+              
+              console.log(`📁 Archivos modificados: ${modifiedFiles.join(', ')}`);
+              console.log(`👥 Equipos requeridos por CODEOWNERS: ${requiredTeams.join(', ')}`);
+              
+              // Siempre requerir aprobación de TechLeads para ramas protegidas
+              const allRequiredTeams = [`@${context.repo.owner}/techleads`, ...requiredTeams];
+              const uniqueRequiredTeams = [...new Set(allRequiredTeams)];
+              
+              console.log(`🔒 Equipos requeridos en total: ${uniqueRequiredTeams.join(', ')}`);
+              console.log(`👤 Aprobaciones recibidas: ${approvals.map(a => a.user.login).join(', ')}`);
+              
+              // Validar aprobaciones no autorizadas
+              const unauthorizedApprovals = [];
+              const authorizedMembers = new Set();
+              
+              // Agregar miembros de todos los equipos requeridos
+              for (const team of uniqueRequiredTeams) {
+                const teamSlug = extractTeamSlug(team);
+                if (!teamSlug) continue;
+                let teamMembers = [];
+                
+                if (teamSlug === 'techleads') {
+                  teamMembers = teamInfo.members;
+                } else {
+                  teamMembers = await getTeamMembers(teamSlug);
+                }
+                
+                teamMembers.forEach(member => authorizedMembers.add(member));
+                console.log(`👥 Miembros de ${team}: ${teamMembers.join(', ')}`);
+              }
+              
+              console.log(`✅ Miembros autorizados en total: ${Array.from(authorizedMembers).join(', ')}`);
+              
+              approvals.forEach(approval => {
+                if (!authorizedMembers.has(approval.user.login)) {
+                  unauthorizedApprovals.push(approval);
+                }
+              });
+              
+              if (unauthorizedApprovals.length > 0) {
+                console.log(`❌ Aprobación no autorizada de: ${unauthorizedApprovals[0].user.login}`);
+                
+                // Crear comentario
+                const commentBody = [
+                  '## Aprobación No Autorizada',
+                  '',
+                  `**El usuario @${unauthorizedApprovals[0].user.login} ha aprobado este PR, pero no es miembro de los equipos autorizados.**`,
+                  '',
+                  '### Restricciones de Aprobación',
+                  `- Solo miembros de los equipos autorizados pueden aprobar PRs hacia ${targetBranch}`,
+                  `- Equipos requeridos: ${uniqueRequiredTeams.join(', ')}`,
+                  '',
+                  '### Acción Requerida',
+                  'Por favor, solicita que un miembro de los equipos autorizados revise y apruebe este PR.',
+                  '',
+                  '---',
+                  '*Este mensaje fue generado automáticamente por el sistema de validación de aprobaciones.*'
+                ].join('\n');
+                
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.pull_request.number,
+                  body: commentBody
+                });
+                
+                // Rechazar aprobación
+                try {
+                  await github.rest.pulls.dismissReview({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: context.payload.pull_request.number,
+                    review_id: unauthorizedApprovals[0].id,
+                    message: 'Aprobación rechazada: El usuario no es miembro de los equipos autorizados'
+                  });
+                  console.log(`✅ Aprobación no autorizada rechazada`);
+                } catch (dismissError) {
+                  console.log(`⚠️ No se pudo rechazar la aprobación: ${dismissError.message}`);
+                }
+                
+                // Crear un status check que falle para bloquear el merge
+                await github.rest.repos.createCommitStatus({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  sha: context.payload.pull_request.head.sha,
+                  state: 'failure',
+                  context: 'manage-reviews',
+                  description: `Aprobación no autorizada de: ${unauthorizedApprovals[0].user.login}`,
+                  target_url: context.payload.pull_request.html_url
+                });
+                
+                console.log(`❌ Status check creado como FAILURE por aprobación no autorizada`);
+                return; // Salir del workflow sin fallar
+              } else {
+                console.log(`✅ Todas las aprobaciones son de miembros autorizados`);
+                
+                // Verificar que hay al menos una aprobación de cada equipo requerido
+                const teamApprovals = {};
+                const allTeamMembers = {};
+                
+                // Obtener miembros de todos los equipos requeridos
+                for (const team of uniqueRequiredTeams) {
+                  const teamSlug = extractTeamSlug(team);
+                  if (!teamSlug) continue;
+                  teamApprovals[team] = false;
+                  
+                  if (teamSlug === 'techleads') {
+                    allTeamMembers[team] = teamInfo.members;
+                  } else {
+                    allTeamMembers[team] = await getTeamMembers(teamSlug);
+                  }
+                }
+                
+                // Verificar aprobaciones
+                for (const approval of approvals) {
+                  for (const team of uniqueRequiredTeams) {
+                    if (allTeamMembers[team].includes(approval.user.login)) {
+                      teamApprovals[team] = true;
+                      console.log(`✅ Aprobación válida de ${approval.user.login} para ${team}`);
+                    }
+                  }
+                }
+                
+                const missingApprovals = Object.entries(teamApprovals)
+                  .filter(([team, hasApproval]) => !hasApproval)
+                  .map(([team]) => team);
+                
+                if (missingApprovals.length > 0) {
+                  console.log(`❌ Faltan aprobaciones de: ${missingApprovals.join(', ')}`);
+                  
+                  // Crear comentario de advertencia
+                  const commentBody = [
+                    '## ⚠️ Aprobación Requerida',
+                    '',
+                    `**Este PR hacia \`${targetBranch}\` requiere aprobación de los siguientes equipos:**`,
+                    '',
+                    '### Equipos Requeridos',
+                    ...missingApprovals.map(team => `- ${team}`),
+                    '',
+                    '### Archivos Modificados',
+                    ...modifiedFiles.map(file => `- \`${file}\``),
+                    '',
+                    '### Acción Requerida',
+                    'Por favor, solicita que un miembro de cada equipo requerido revise y apruebe este PR.',
+                    '',
+                    '---',
+                    '*Este mensaje fue generado automáticamente por el sistema de validación de aprobaciones.*'
+                  ].join('\n');
+                  
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: context.payload.pull_request.number,
+                    body: commentBody
+                  });
+                  
+                  // Crear un status check que falle para bloquear el merge
+                  await github.rest.repos.createCommitStatus({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    sha: context.payload.pull_request.head.sha,
+                    state: 'failure',
+                    context: 'manage-reviews',
+                    description: `PR requiere aprobación de: ${missingApprovals.join(', ')}`,
+                    target_url: context.payload.pull_request.html_url
+                  });
+                  
+                  console.log(`❌ Status check creado como FAILURE para bloquear merge`);
+                  return; // Salir del workflow sin fallar
+                } else {
+                  console.log(`✅ Todas las aprobaciones requeridas están presentes`);
+                  
+                  // Crear un status check exitoso
+                  await github.rest.repos.createCommitStatus({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    sha: context.payload.pull_request.head.sha,
+                    state: 'success',
+                    context: 'manage-reviews',
+                    description: 'Todas las aprobaciones requeridas están presentes',
+                    target_url: context.payload.pull_request.html_url
+                  });
+                  
+                  console.log(`✅ Status check creado como SUCCESS`);
+                }
+              }
+            }
+            
+            // Lógica principal
+            try {
+              const teamInfo = await getTechLeadsInfo();
+              console.log(`👥 Equipo TechLeads: ${teamInfo.team.name} (${teamInfo.members.length} miembros)`);
+              
+              if (context.eventName === 'pull_request') {
+                await requestReview(teamInfo);
+              } else if (context.eventName === 'pull_request_review' && context.payload.review.state === 'approved') {
+                await validateApprovals(teamInfo);
+              }
+              
+            } catch (error) {
+              console.log(`❌ Error en la gestión de revisiones: ${error.message}`);
+            }
