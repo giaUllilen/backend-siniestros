@@ -1,0 +1,1232 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Backend Siniestros API",
+    "description": "API para gestión de siniestros, colaboradores, pagos SOAT y centro de suscripciones",
+    "version": "2.0.0",
+    "contact": {
+      "name": "Equipo de Desarrollo"
+    }
+  },
+  "servers": [
+    {
+      "url": "{subdomain}/api",
+      "description": "Servidor de la aplicación",
+      "variables": {
+        "subdomain": {
+          "default": "https://api.example.com",
+          "description": "Subdominio del servidor"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/v1.0/info": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Verificar estado del servicio",
+        "description": "Endpoint para verificar si el servicio está activo",
+        "operationId": "healthCheck",
+        "responses": {
+          "200": {
+            "description": "Servicio activo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "UP"
+                    },
+                    "time": {
+                      "type": "string",
+                      "example": "30/12/2025 3:04:05 PM"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Servicio inactivo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "DOWN"
+                    },
+                    "time": {
+                      "type": "string",
+                      "example": "30/12/2025 3:04:05 PM"
+                    },
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/datetime": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Obtener fecha y hora del servidor",
+        "description": "Retorna la fecha y hora actual del servidor (UTC-5)",
+        "operationId": "getDateTime",
+        "responses": {
+          "200": {
+            "description": "Fecha y hora actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "time": {
+                      "type": "string",
+                      "format": "date-time",
+                      "example": "2025-12-30 15:04:05"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/photocheck": {
+      "get": {
+        "tags": ["Colaboradores"],
+        "summary": "Buscar colaborador por código",
+        "description": "Obtiene información de un colaborador según su código",
+        "operationId": "getCollaborator",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "description": "Código del colaborador",
+            "schema": {
+              "type": "string",
+              "example": "C001"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Colaborador encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollaboratorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud incorrecta",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/soat/returns": {
+      "get": {
+        "tags": ["SOAT"],
+        "summary": "Obtener devoluciones SOAT",
+        "description": "Busca devoluciones de SOAT por número de documento",
+        "operationId": "getSoatReturns",
+        "parameters": [
+          {
+            "name": "document",
+            "in": "query",
+            "required": true,
+            "description": "Número de documento del asegurado",
+            "schema": {
+              "type": "string",
+              "example": "12345678"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Devoluciones encontradas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud incorrecta",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/subscription-center/{key}": {
+      "get": {
+        "tags": ["Centro de Suscripciones"],
+        "summary": "Obtener opciones de suscripción por clave",
+        "description": "Busca opciones de centro de suscripción por su clave identificadora",
+        "operationId": "getSubscriptionCenter",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Clave de la suscripción",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Opciones de suscripción encontradas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud incorrecta",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/subscription-center": {
+      "post": {
+        "tags": ["Centro de Suscripciones"],
+        "summary": "Crear opciones de suscripción",
+        "description": "Crea nuevas opciones en el centro de suscripciones",
+        "operationId": "createSubscriptionCenter",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["key", "option", "value"],
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "description": "Clave de la suscripción"
+                  },
+                  "option": {
+                    "type": "string",
+                    "description": "Opción de suscripción"
+                  },
+                  "value": {
+                    "type": "string",
+                    "description": "Valor de la opción"
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "Tipo de versión (v1 o v2)",
+                    "default": "v1"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Descripción de la suscripción"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Suscripción creada exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud incorrecta",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/sinister/payments": {
+      "get": {
+        "tags": ["Siniestros - Pagos"],
+        "summary": "Obtener pagos de siniestro",
+        "description": "Busca pagos de siniestro por número de documento",
+        "operationId": "getSinisterPayments",
+        "parameters": [
+          {
+            "name": "document",
+            "in": "query",
+            "required": true,
+            "description": "Número de documento del asegurado",
+            "schema": {
+              "type": "string",
+              "example": "12345678"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pagos encontrados",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud incorrecta",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/sinister/save": {
+      "post": {
+        "tags": ["Siniestros - Pagos"],
+        "summary": "Guardar siniestro con archivos adjuntos",
+        "description": "Guarda información de un siniestro con archivos adjuntos (multipart/form-data)",
+        "operationId": "saveSinister",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["sinister"],
+                "properties": {
+                  "sinister": {
+                    "type": "string",
+                    "description": "Datos del siniestro en formato JSON"
+                  },
+                  "attachments": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    },
+                    "description": "Archivos adjuntos del siniestro"
+                  },
+                  "attachments_metadata": {
+                    "type": "string",
+                    "description": "Metadata de los archivos en formato JSON"
+                  },
+                  "environment": {
+                    "type": "string",
+                    "description": "Ambiente de ejecución"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Origin",
+            "in": "header",
+            "required": false,
+            "description": "Origen de la petición (Web, Mobile, etc.)",
+            "schema": {
+              "type": "string",
+              "default": "Web"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Siniestro guardado exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cases": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud incorrecta",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/sinister/get/{case_id}": {
+      "get": {
+        "tags": ["Siniestros - Pagos"],
+        "summary": "Obtener siniestro por caso",
+        "description": "Obtiene información de un siniestro por su número de caso",
+        "operationId": "getSinisterByCase",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "description": "Número de caso del siniestro",
+            "schema": {
+              "type": "string",
+              "example": "CIS_98746"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Siniestro encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud incorrecta",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/sinister/document": {
+      "get": {
+        "tags": ["Siniestros - Documentos"],
+        "summary": "Descargar documento de siniestro",
+        "description": "Descarga un documento asociado a un siniestro",
+        "operationId": "downloadDocument",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "description": "URL del documento a descargar",
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "file",
+            "in": "query",
+            "required": true,
+            "description": "Nombre del archivo",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Documento descargado exitosamente",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud incorrecta",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2.0/sinister": {
+      "post": {
+        "tags": ["Siniestros - AI"],
+        "summary": "Guardar siniestro con procesamiento IA",
+        "description": "Guarda un siniestro utilizando procesamiento de inteligencia artificial (GenAI)",
+        "operationId": "saveSinisterWithAI",
+        "parameters": [
+          {
+            "name": "X-Origin",
+            "in": "header",
+            "required": false,
+            "description": "Origen de la petición (Web, Mobile, etc.)",
+            "schema": {
+              "type": "string",
+              "default": "Web"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SinisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Siniestro guardado exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cases": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud incorrecta",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["Siniestros - AI"],
+        "summary": "Obtener todos los siniestros",
+        "description": "Obtiene listado de todos los siniestros procesados con IA",
+        "operationId": "getAllSinisters",
+        "responses": {
+          "200": {
+            "description": "Lista de siniestros",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2.0/sinister/case/{case_id}": {
+      "get": {
+        "tags": ["Siniestros - AI"],
+        "summary": "Obtener siniestro por caso (AI)",
+        "description": "Obtiene información de un siniestro procesado con IA por su número de caso",
+        "operationId": "getSinisterByCaseAI",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "description": "Número de caso del siniestro",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Siniestro encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud incorrecta",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2.0/sinister/doc": {
+      "post": {
+        "tags": ["Siniestros - AI"],
+        "summary": "Analizar documento de siniestro",
+        "description": "Analiza un documento de siniestro utilizando inteligencia artificial",
+        "operationId": "analyzeDocument",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SinisterCase"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Documento analizado exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud incorrecta",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2.0/sinister/doc/observed": {
+      "post": {
+        "tags": ["Siniestros - AI"],
+        "summary": "Cargar documento observado",
+        "description": "Carga un documento observado y actualiza el siniestro correspondiente",
+        "operationId": "uploadObservedDocument",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SinisterCase"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Documento observado actualizado correctamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud incorrecta",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2.0/sinister/previous/{doc}": {
+      "get": {
+        "tags": ["Siniestros - AI"],
+        "summary": "Obtener casos previos",
+        "description": "Obtiene casos previos de siniestro asociados a un número de documento",
+        "operationId": "getPreviousCases",
+        "parameters": [
+          {
+            "name": "doc",
+            "in": "path",
+            "required": true,
+            "description": "Número de documento del asegurado",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Casos previos encontrados",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud incorrecta",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SinisterRequest": {
+        "type": "object",
+        "required": ["tipoPoliza", "asegurado", "solicitante", "fechaOcurrencia"],
+        "properties": {
+          "tipoPoliza": {
+            "type": "string",
+            "description": "Tipo de póliza del seguro",
+            "example": "ACCIDENTES_PERSONALES"
+          },
+          "asegurado": {
+            "$ref": "#/components/schemas/Asegurado"
+          },
+          "solicitante": {
+            "$ref": "#/components/schemas/Solicitante"
+          },
+          "narracion": {
+            "type": "string",
+            "description": "Narración de los hechos del siniestro"
+          },
+          "fechaOcurrencia": {
+            "type": "string",
+            "format": "date",
+            "description": "Fecha de ocurrencia del siniestro",
+            "example": "2025-12-30"
+          },
+          "montoSolicitado": {
+            "type": "string",
+            "description": "Monto solicitado para el siniestro",
+            "example": "5000.00"
+          },
+          "pagador": {
+            "type": "string",
+            "description": "Identificador del pagador"
+          },
+          "fechasIncapacidad": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FechasIncapacidad"
+            }
+          },
+          "declaracionJurada": {
+            "type": "boolean",
+            "description": "Indica si se firmó declaración jurada",
+            "default": false
+          },
+          "beneficiarios": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Beneficiario"
+            }
+          },
+          "documentos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocumentSection"
+            }
+          }
+        }
+      },
+      "Asegurado": {
+        "type": "object",
+        "required": ["nroDocumento"],
+        "properties": {
+          "apellidoPaterno": {
+            "type": "string",
+            "description": "Apellido paterno del asegurado",
+            "example": "García"
+          },
+          "apellidoMaterno": {
+            "type": "string",
+            "description": "Apellido materno del asegurado",
+            "example": "López"
+          },
+          "nombres": {
+            "type": "string",
+            "description": "Nombres del asegurado",
+            "example": "Juan Carlos"
+          },
+          "nroDocumento": {
+            "type": "string",
+            "description": "Número de documento del asegurado",
+            "example": "12345678"
+          }
+        }
+      },
+      "Solicitante": {
+        "type": "object",
+        "required": ["nroDocumento"],
+        "properties": {
+          "apellidoPaterno": {
+            "type": "string",
+            "description": "Apellido paterno del solicitante",
+            "example": "Pérez"
+          },
+          "apellidoMaterno": {
+            "type": "string",
+            "description": "Apellido materno del solicitante",
+            "example": "Silva"
+          },
+          "nombres": {
+            "type": "string",
+            "description": "Nombres del solicitante",
+            "example": "María Elena"
+          },
+          "nroDocumento": {
+            "type": "string",
+            "description": "Número de documento del solicitante",
+            "example": "87654321"
+          },
+          "correo": {
+            "type": "string",
+            "format": "email",
+            "description": "Correo electrónico del solicitante",
+            "example": "maria.silva@example.com"
+          },
+          "celular": {
+            "type": "string",
+            "description": "Número de celular del solicitante",
+            "example": "987654321"
+          }
+        }
+      },
+      "FechasIncapacidad": {
+        "type": "object",
+        "properties": {
+          "fechaInicioIncapacidad": {
+            "type": "string",
+            "format": "date",
+            "description": "Fecha de inicio de incapacidad",
+            "example": "2025-12-01"
+          },
+          "fechaFinIncapacidad": {
+            "type": "string",
+            "format": "date",
+            "description": "Fecha de fin de incapacidad",
+            "example": "2025-12-15"
+          }
+        }
+      },
+      "Beneficiario": {
+        "type": "object",
+        "properties": {
+          "metodoPago": {
+            "type": "string",
+            "description": "Método de pago",
+            "example": "TRANSFERENCIA_BANCARIA"
+          },
+          "nroCuenta": {
+            "type": "string",
+            "description": "Número de cuenta bancaria",
+            "example": "19200123456789"
+          },
+          "titular": {
+            "type": "string",
+            "description": "Nombre del titular de la cuenta",
+            "example": "Juan García López"
+          },
+          "nroDocumento": {
+            "type": "string",
+            "description": "Número de documento del titular",
+            "example": "12345678"
+          },
+          "banco": {
+            "type": "string",
+            "description": "Nombre del banco",
+            "example": "BCP"
+          },
+          "moneda": {
+            "type": "string",
+            "description": "Moneda de la cuenta",
+            "example": "PEN"
+          },
+          "tipoCuenta": {
+            "type": "string",
+            "description": "Tipo de cuenta bancaria",
+            "example": "AHORROS"
+          }
+        }
+      },
+      "Document": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Nombre del documento"
+          },
+          "filename": {
+            "type": "string",
+            "description": "Nombre del archivo"
+          },
+          "file_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL del archivo"
+          }
+        }
+      },
+      "DocumentSection": {
+        "type": "object",
+        "properties": {
+          "coverage": {
+            "type": "string",
+            "description": "Cobertura asociada a los documentos"
+          },
+          "documents": {
+            "type": "array",
+            "description": "Documentos principales",
+            "items": {
+              "$ref": "#/components/schemas/Document"
+            }
+          },
+          "additional": {
+            "type": "array",
+            "description": "Documentos adicionales",
+            "items": {
+              "$ref": "#/components/schemas/Document"
+            }
+          }
+        }
+      },
+      "SinisterCase": {
+        "type": "object",
+        "required": ["numero_documento", "documento"],
+        "properties": {
+          "caso": {
+            "type": "string",
+            "description": "Número de caso del siniestro",
+            "example": "CIS_98746"
+          },
+          "numero_documento": {
+            "type": "string",
+            "description": "Número de documento del asegurado",
+            "example": "12345678"
+          },
+          "documento": {
+            "$ref": "#/components/schemas/Document"
+          },
+          "previous_analysis_id": {
+            "type": "string",
+            "description": "ID de análisis previo"
+          }
+        }
+      },
+      "Collaborator": {
+        "type": "object",
+        "properties": {
+          "idPersona": {
+            "type": "string",
+            "description": "ID de la persona"
+          },
+          "nombres": {
+            "type": "string",
+            "description": "Nombres del colaborador"
+          },
+          "apellidoPaterno": {
+            "type": "string",
+            "description": "Apellido paterno"
+          },
+          "apellidoMaterno": {
+            "type": "string",
+            "description": "Apellido materno"
+          },
+          "apellidos": {
+            "type": "string",
+            "description": "Apellidos completos"
+          },
+          "puesto": {
+            "type": "string",
+            "description": "Código del puesto"
+          },
+          "descripcionPuesto": {
+            "type": "string",
+            "description": "Descripción del puesto"
+          },
+          "codigoArea": {
+            "type": "string",
+            "description": "Código del área"
+          },
+          "descripcionArea": {
+            "type": "string",
+            "description": "Descripción del área"
+          },
+          "tipoDocumento": {
+            "type": "string",
+            "description": "Tipo de documento"
+          },
+          "codigoTipoDocumento": {
+            "type": "string",
+            "description": "Código del tipo de documento"
+          },
+          "documentoIdentidad": {
+            "type": "string",
+            "description": "Número de documento de identidad"
+          },
+          "codigoIS": {
+            "type": "string",
+            "description": "Código Interseguro"
+          },
+          "fechaIngreso": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha de ingreso"
+          },
+          "fechaCese": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha de cese"
+          },
+          "estado": {
+            "type": "string",
+            "description": "Estado del colaborador"
+          },
+          "codigoVicepresidencia": {
+            "type": "string",
+            "description": "Código de vicepresidencia"
+          },
+          "vicepresidencia": {
+            "type": "string",
+            "description": "Nombre de la vicepresidencia"
+          }
+        }
+      },
+      "CollaboratorResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Collaborator"
+          },
+          "message": {
+            "type": "string",
+            "example": "success"
+          }
+        }
+      },
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "description": "Datos de la respuesta"
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensaje de éxito",
+            "example": "success"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Mensaje de error"
+          },
+          "message": {
+            "type": "string",
+            "description": "Descripción del error"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Endpoints para verificación de estado del servicio"
+    },
+    {
+      "name": "Colaboradores",
+      "description": "Endpoints para gestión de colaboradores"
+    },
+    {
+      "name": "SOAT",
+      "description": "Endpoints para gestión de devoluciones SOAT"
+    },
+    {
+      "name": "Centro de Suscripciones",
+      "description": "Endpoints para gestión del centro de suscripciones"
+    },
+    {
+      "name": "Siniestros - Pagos",
+      "description": "Endpoints para gestión de pagos de siniestros (v1.0)"
+    },
+    {
+      "name": "Siniestros - AI",
+      "description": "Endpoints para gestión de siniestros con inteligencia artificial (v2.0)"
+    },
+    {
+      "name": "Siniestros - Documentos",
+      "description": "Endpoints para gestión de documentos de siniestros"
+    }
+  ]
+}
+
