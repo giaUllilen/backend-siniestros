@@ -1,4 +1,4 @@
-package apihelpers_test
+package apihelpers
 
 import (
 	"os"

@@ -1,14 +1,13 @@
-package storage_test
+package storage
 
 import (
-	"is-public-api/application/storage"
 	"testing"
 	_ "is-public-api/tests" // Importar setup de variables de entorno
 )
 
 // Test para NewCustomerRepository
 func TestNewCustomerRepository(t *testing.T) {
-	repo := storage.NewCustomerRepository(nil)
+	repo := NewCustomerRepository(nil)
 	
 	if repo == nil {
 		t.Error("Expected repository to be created, got nil")
@@ -17,7 +16,7 @@ func TestNewCustomerRepository(t *testing.T) {
 
 // Test para verificar que Find tiene la firma correcta
 func TestCustomerRepository_Find_Signature(t *testing.T) {
-	repo := storage.NewCustomerRepository(nil)
+	repo := NewCustomerRepository(nil)
 	
 	// Verificar que el repositorio se creó correctamente
 	if repo == nil {

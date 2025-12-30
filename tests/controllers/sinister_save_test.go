@@ -1,8 +1,7 @@
-package controllers_test
+package controllers
 
 import (
 	"errors"
-	"is-public-api/application/controllers"
 	"is-public-api/application/models"
 	"mime/multipart"
 	"testing"
@@ -54,7 +53,7 @@ func TestNewSinisterPaymentHandler(t *testing.T) {
 	mockService := &MockSinisterService{}
 	mockDomain := &MockSinisterServiceDomain{}
 	
-	handler := controllers.NewSinisterPaymentHandler(mockService, mockDomain)
+	handler := NewSinisterPaymentHandler(mockService, mockDomain)
 	
 	if handler == nil {
 		t.Error("Expected handler to be created, got nil")
@@ -80,7 +79,7 @@ func TestSinisterHandler_FindByDocumentNumber_Success(t *testing.T) {
 	}
 	
 	mockDomain := &MockSinisterServiceDomain{}
-	handler := controllers.NewSinisterPaymentHandler(mockService, mockDomain)
+	handler := NewSinisterPaymentHandler(mockService, mockDomain)
 	
 	if handler == nil {
 		t.Fatal("Expected handler to be created")
@@ -98,7 +97,7 @@ func TestSinisterHandler_FindByDocumentNumber_Error(t *testing.T) {
 	}
 	
 	mockDomain := &MockSinisterServiceDomain{}
-	handler := controllers.NewSinisterPaymentHandler(mockService, mockDomain)
+	handler := NewSinisterPaymentHandler(mockService, mockDomain)
 	
 	if handler == nil {
 		t.Error("Expected handler to be created")
@@ -121,7 +120,7 @@ func TestSinisterHandler_Save_Success(t *testing.T) {
 		},
 	}
 	
-	handler := controllers.NewSinisterPaymentHandler(mockService, mockDomain)
+	handler := NewSinisterPaymentHandler(mockService, mockDomain)
 	
 	if handler == nil {
 		t.Error("Expected handler to be created")
@@ -139,7 +138,7 @@ func TestSinisterHandler_FindByCaseNumber_Success(t *testing.T) {
 		},
 	}
 	
-	handler := controllers.NewSinisterPaymentHandler(mockService, mockDomain)
+	handler := NewSinisterPaymentHandler(mockService, mockDomain)
 	
 	if handler == nil {
 		t.Error("Expected handler to be created")
