@@ -1,12 +1,12 @@
-package services_test
+package services
 
 import (
 	"encoding/base64"
 	"errors"
 	"is-public-api/application/colletions"
 	"is-public-api/application/models"
-	"is-public-api/application/services"
 	"testing"
+	"time"
 )
 
 // Mock del repositorio ICollaboratorRepository
@@ -24,7 +24,7 @@ func (m *MockCollaboratorRepository) Find(txContext *models.TxContext, code stri
 // Test para NewCollaboratorFinder
 func TestNewCollaboratorFinder(t *testing.T) {
 	mockRepo := &MockCollaboratorRepository{}
-	service := services.NewCollaboratorFinder(mockRepo)
+	service := NewCollaboratorFinder(mockRepo)
 
 	if service == nil {
 		t.Error("Expected service to be created, got nil")
@@ -33,6 +33,7 @@ func TestNewCollaboratorFinder(t *testing.T) {
 
 // Test para Find - caso exitoso
 func TestCollaboratorFind_Success(t *testing.T) {
+	fechaIngreso, _ := time.Parse("2006-01-02", "2020-01-15")
 	expectedCollaborator := &colletions.Colaborador{
 		IdPersona:            "P001",
 		Nombres:              "Juan Carlos",
@@ -47,8 +48,8 @@ func TestCollaboratorFind_Success(t *testing.T) {
 		CodigoTipoDocumento:  "1",
 		DocumentoIdentidad:   "12345678",
 		CodigoIS:             "IS-001",
-		FechaIngreso:         "2020-01-15",
-		FechaCese:            "",
+		FechaIngreso:         fechaIngreso,
+		FechaCese:            time.Time{},
 		Estado:               "Activo",
 		CodigoVicepresidencia: "VP-001",
 		Vicepresidencia:      "Operaciones",
@@ -68,7 +69,7 @@ func TestCollaboratorFind_Success(t *testing.T) {
 		},
 	}
 
-	service := services.NewCollaboratorFinder(mockRepo)
+	service := NewCollaboratorFinder(mockRepo)
 	txContext := &models.TxContext{
 		TransactionID: "test-tx-001",
 	}
@@ -101,7 +102,7 @@ func TestCollaboratorFind_Success(t *testing.T) {
 // Test para Find - código base64 inválido
 func TestCollaboratorFind_InvalidBase64(t *testing.T) {
 	mockRepo := &MockCollaboratorRepository{}
-	service := services.NewCollaboratorFinder(mockRepo)
+	service := NewCollaboratorFinder(mockRepo)
 	txContext := &models.TxContext{
 		TransactionID: "test-tx-002",
 	}
@@ -131,7 +132,7 @@ func TestCollaboratorFind_RepositoryError(t *testing.T) {
 		},
 	}
 
-	service := services.NewCollaboratorFinder(mockRepo)
+	service := NewCollaboratorFinder(mockRepo)
 	txContext := &models.TxContext{
 		TransactionID: "test-tx-003",
 	}
@@ -162,7 +163,7 @@ func TestCollaboratorFind_NotFound(t *testing.T) {
 		},
 	}
 
-	service := services.NewCollaboratorFinder(mockRepo)
+	service := NewCollaboratorFinder(mockRepo)
 	txContext := &models.TxContext{}
 
 	result, err := service.Find(txContext, encodedCode)
@@ -189,7 +190,7 @@ func TestCollaboratorFind_EmptyCode(t *testing.T) {
 		},
 	}
 
-	service := services.NewCollaboratorFinder(mockRepo)
+	service := NewCollaboratorFinder(mockRepo)
 	txContext := &models.TxContext{}
 
 	result, err := service.Find(txContext, emptyCode)

@@ -1,10 +1,10 @@
-package controllers_test
+package controllers
 
 import (
 	"errors"
-	"is-public-api/application/controllers"
 	"is-public-api/application/models"
 	"testing"
+	_ "is-public-api/tests" // Importar setup de variables de entorno
 )
 
 // Mock del servicio ICollaboratorFinder
@@ -22,7 +22,7 @@ func (m *MockCollaboratorFinder) Find(txContext *models.TxContext, code string) 
 // Test para NewCollaboratorHandler
 func TestNewCollaboratorHandler(t *testing.T) {
 	mockFinder := &MockCollaboratorFinder{}
-	handler := controllers.NewCollaboratorHandler(mockFinder)
+	handler := NewCollaboratorHandler(mockFinder)
 	
 	if handler == nil {
 		t.Error("Expected handler to be created, got nil")
@@ -45,7 +45,7 @@ func TestCollaboratorHandler_WithValidFinder(t *testing.T) {
 		},
 	}
 	
-	handler := controllers.NewCollaboratorHandler(mockFinder)
+	handler := NewCollaboratorHandler(mockFinder)
 	
 	if handler == nil {
 		t.Fatal("Expected handler to be created")
@@ -62,7 +62,7 @@ func TestCollaboratorHandler_FinderError(t *testing.T) {
 		},
 	}
 	
-	handler := controllers.NewCollaboratorHandler(mockFinder)
+	handler := NewCollaboratorHandler(mockFinder)
 	if handler == nil {
 		t.Error("Expected handler to be created")
 	}
