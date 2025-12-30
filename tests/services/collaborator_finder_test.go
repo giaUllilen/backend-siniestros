@@ -7,6 +7,7 @@ import (
 	"is-public-api/application/models"
 	"is-public-api/application/services"
 	"testing"
+	"time"
 )
 
 // Mock del repositorio ICollaboratorRepository
@@ -33,6 +34,7 @@ func TestNewCollaboratorFinder(t *testing.T) {
 
 // Test para Find - caso exitoso
 func TestCollaboratorFind_Success(t *testing.T) {
+	fechaIngreso, _ := time.Parse("2006-01-02", "2020-01-15")
 	expectedCollaborator := &colletions.Colaborador{
 		IdPersona:            "P001",
 		Nombres:              "Juan Carlos",
@@ -47,8 +49,8 @@ func TestCollaboratorFind_Success(t *testing.T) {
 		CodigoTipoDocumento:  "1",
 		DocumentoIdentidad:   "12345678",
 		CodigoIS:             "IS-001",
-		FechaIngreso:         "2020-01-15",
-		FechaCese:            "",
+		FechaIngreso:         fechaIngreso,
+		FechaCese:            time.Time{},
 		Estado:               "Activo",
 		CodigoVicepresidencia: "VP-001",
 		Vicepresidencia:      "Operaciones",

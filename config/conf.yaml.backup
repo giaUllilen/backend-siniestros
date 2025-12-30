@@ -1,0 +1,52 @@
+server:
+  context_path: /api
+  port: 8080
+  subdomain: ${SUBDOMAIN}
+aes_key: ${KEY_AES_SHA}
+mongodb:
+  uri: ${URI_DB_MONGO}
+  application_name: is-public-api-zs
+  database_name: ${NAME_DB_MONGO}
+  ssl: false
+  auth_mechanism:  'SCRAM-SHA-1'
+  credentials:
+    username: ${USR_DB_MONGO}
+    password: ${PWD_DB_MONGO}
+  cluster:
+    max_wait_queue_size: 5
+  connection_pool:
+    minSize: 5
+    maxSize: 100
+services:
+  cloud_function:
+    uri: ${URI_CLOUD_FUNCTION}
+  sinister:
+    path: ${URL_SINISTER_API}
+    updateObservationIA: /api/v1/siniestros/updateObservationIA
+    save: /api/v1/siniestros/saveSiniestro
+    history: /api/v1/siniestros/listSiniestros
+    document: /api/v1/siniestros/agregarDocumentos
+    get: /api/v1/siniestros/getSiniestro
+    delete: /api/v1/siniestros/siniestro
+    api_genai_key: ${SERVICES_SINISTER_API_GENAI_KEY}
+    api_genai_url: ${SERVICES_SINISTER_API_GENAI_URL}
+    promt_dp: ${PROMT_DP}
+    promt_dm: ${PROMT_DM}
+    promt_dictamen: ${PROMT_DICTAMEN}
+    api_diagnostic: ${API_DIAGNOSTIC}
+  storage:
+    path: ${URL_SINISTER_STORAGE}
+    endpoint: /api/v1/documento/upload
+    endpoint1: /api/v1/documento/upload
+    endpoint2: /upload'
+  notifications:
+    path: ${URL_NOTIFICATIONS}
+    endpoint: /v2/email/single/send?product=ZONA_SEGURA
+  qualitat:
+    qualitat_user: ${QUALITAT_USER}
+    qualitat_pass: ${QUALITAT_PASS}
+  event_log:
+    uri: ${URI_EVENT_LOG}
+    api_key: ${API_KEY_EVENT_LOG}
+    api_key_wsp: ${API_KEY_EVENT_WSP_LOG}
+  

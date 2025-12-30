@@ -4,7 +4,9 @@ import (
 	"errors"
 	"is-public-api/application/controllers"
 	"is-public-api/application/models"
+	"mime/multipart"
 	"testing"
+	_ "is-public-api/tests" // Importar setup de variables de entorno
 )
 
 // Mock del servicio ISinisterService
@@ -21,20 +23,28 @@ func (m *MockSinisterService) FindByDocumentNumber(txContext *models.TxContext, 
 
 // Mock del servicio ISinisterServiceDomain
 type MockSinisterServiceDomain struct {
-	SaveFunc             func(txContext *models.TxContext, request map[string]interface{}, coverages []map[string]interface{}, attachments interface{}) (interface{}, error)
-	FindByCaseNumberFunc func(txContext *models.TxContext, caseID interface{}) (int, []byte, error)
+	SaveFunc              func(txContext *models.TxContext, request map[string]interface{}, coverages []map[string]interface{}, attachments []*multipart.FileHeader) ([]interface{}, error)
+	FindByCaseNumberFunc  func(txContext *models.TxContext, caseID interface{}) (int, []byte, error)
+	FindByCaseHistoryFunc func(txContext *models.TxContext, documentNumber string) (int, []models.SinisterHistory, error)
 }
 
-func (m *MockSinisterServiceDomain) Save(txContext *models.TxContext, request map[string]interface{}, coverages []map[string]interface{}, attachments interface{}) (interface{}, error) {
+func (m *MockSinisterServiceDomain) Save(txContext *models.TxContext, request map[string]interface{}, coverages []map[string]interface{}, attachments []*multipart.FileHeader) ([]interface{}, error) {
 	if m.SaveFunc != nil {
 		return m.SaveFunc(txContext, request, coverages, attachments)
 	}
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockSinisterServiceDomain) FindByCaseNumber(txContext *models.TxContext, caseID interface{}) (int, []byte, error) {
+func (m *MockSinisterServiceDomain) FindByCaseNumber(txContext *models.TxContext, caseID string) (int, []byte, error) {
 	if m.FindByCaseNumberFunc != nil {
 		return m.FindByCaseNumberFunc(txContext, caseID)
+	}
+	return 404, nil, errors.New("not implemented")
+}
+
+func (m *MockSinisterServiceDomain) FindByCaseHistory(txContext *models.TxContext, documentNumber string) (int, []models.SinisterHistory, error) {
+	if m.FindByCaseHistoryFunc != nil {
+		return m.FindByCaseHistoryFunc(txContext, documentNumber)
 	}
 	return 404, nil, errors.New("not implemented")
 }
@@ -97,14 +107,16 @@ func TestSinisterHandler_FindByDocumentNumber_Error(t *testing.T) {
 
 // Test para domain.Save - caso exitoso
 func TestSinisterHandler_Save_Success(t *testing.T) {
-	expectedResponse := map[string]interface{}{
-		"case_id": "CIS_12345",
-		"status":  "created",
+	expectedResponse := []interface{}{
+		map[string]interface{}{
+			"case_id": "CIS_12345",
+			"status":  "created",
+		},
 	}
 	
 	mockService := &MockSinisterService{}
 	mockDomain := &MockSinisterServiceDomain{
-		SaveFunc: func(txContext *models.TxContext, request map[string]interface{}, coverages []map[string]interface{}, attachments interface{}) (interface{}, error) {
+		SaveFunc: func(txContext *models.TxContext, request map[string]interface{}, coverages []map[string]interface{}, attachments []*multipart.FileHeader) ([]interface{}, error) {
 			return expectedResponse, nil
 		},
 	}

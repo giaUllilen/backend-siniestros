@@ -5,6 +5,7 @@ import (
 	"is-public-api/application/controllers"
 	"is-public-api/application/models"
 	"testing"
+	_ "is-public-api/tests" // Importar setup de variables de entorno
 )
 
 // Mock del servicio ICollaboratorFinder
