@@ -1,5 +1,4 @@
 # Variables de entorno
-
 | Variable | Descripción | Valores |
 |----------|-------------|---------|
 | `SUBDOMAIN` | Subdominio del servidor de la aplicación | `dev`, `qa`, `prod` |
