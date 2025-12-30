@@ -1,0 +1,42 @@
+name: Validate rule IS
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - test/release-*
+      - dev
+
+jobs:
+  pr-info:
+    name: PR Closed Info
+    runs-on: ubuntu-latest
+    steps:
+      - name: Procesar PR y enviar al API
+        run: |
+          echo "github.api_url: ${{ github.api_url }}"
+
+          # Enviar información al API
+          echo "=== Enviando información al API ==="
+          
+          # Construir correctamente el JSON y la URL antes de llamar a curl
+          JSON_DATA=$(jq -n \
+            --arg repository_name "${{ github.repository }}" \
+            --arg pr_number "${{ github.event.pull_request.number }}" \
+            '{
+              repository_name: $repository_name, 
+              pr_number: ($pr_number|tonumber),
+            }')
+
+          if [ -z "${{ vars.PR_VALIDATION_API_URI }}" ]; then
+            echo "PR_VALIDATION_API_URI no está definido"
+            exit 1
+          fi
+
+          echo "JSON_DATA: $JSON_DATA"
+
+          curl --location --request PUT "${{ vars.PR_VALIDATION_API_URI }}" \
+            --header 'Content-Type: application/json' \
+            --data "$(echo "$JSON_DATA" | jq -c '.')"
+          
+          echo "✅ Información enviada al API"

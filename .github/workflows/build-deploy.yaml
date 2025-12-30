@@ -1,0 +1,139 @@
+name: Build and Deploy Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+      - test/release-*
+      - dev
+      - integrator
+
+  pull_request:
+    branches:
+      - main
+      - test/release-*
+      - dev
+      
+jobs:
+
+  compliance_rules_is:
+    name: Revisión Rules (stage inicial)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'dev' || startsWith(github.base_ref, 'test/release-'))
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+
+    steps:
+    - name: 'Checkout Code'
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        ref: ${{ github.event.pull_request.head.sha }}
+
+    - name: Auth to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        token_format: 'access_token'
+        workload_identity_provider: ${{ secrets.WIF_PROVIDER_IS_ARCHITECTURE }}   
+        service_account: ${{ secrets.WIF_SERVICE_ACCOUNT_IS_ARCHITECTURE }} 
+
+    - name: Configure Docker with gcloud
+      run: gcloud auth configure-docker ${{ secrets.GCP_REGION_IS_ARCHITECTURE }}-docker.pkg.dev --quiet
+
+    - name: Run Validation Container
+      run: |
+        echo "Ejecutando validación con contenedor..."
+        docker run --rm \
+          -v ${{ github.workspace }}:/app \
+          -e CURSOR_API_KEY="${{ secrets.CURSOR_API_KEY }}" \
+          -e GH_TOKEN="${{ github.token }}" \
+          -e GITHUB_REPOSITORY="${{ github.repository }}" \
+          -e PR_NUMBER="${{ github.event.pull_request.number }}" \
+          -e PR_HEAD_SHA="${{ github.event.pull_request.head.sha }}" \
+          -e PR_BASE_SHA="${{ github.event.pull_request.base.sha }}" \
+          -e ORIGIN_BRANCH_NAME="${{ github.head_ref }}" \
+          -e TARGET_BRANCH_NAME="${{ github.base_ref }}" \
+          -e PR_USER="${{ github.event.pull_request.user.login }}" \
+          -e PR_CREATED_AT="${{ github.event.pull_request.created_at }}" \
+          "${{ secrets.GCP_IMAGE }}"
+        
+        echo "✅ Revisión de código completada"
+
+  artifact:
+    if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'integrator' || startsWith(github.ref_name, 'test/release-'))
+    runs-on: ubuntu-latest
+    environment: ${{ startsWith(github.ref_name, 'test/release-') && 'test' || github.ref_name }}_ci
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - name: 'Checkout Code'
+      uses: actions/checkout@v4
+
+    - id: 'auth'
+      name: 'Authenticate to Google Cloud'
+      uses: 'google-github-actions/auth@v2'
+      with:
+        token_format: 'access_token'
+        workload_identity_provider: '${{ secrets.WIF_PROVIDER_ZONA_SEGURA }}'
+        service_account: '${{ secrets.WIF_SERVICE_ACCOUNT_ZONA_SEGURA }}'
+
+    - name: 'Set up Docker Buildx'
+      uses: 'docker/setup-buildx-action@v3'
+
+    - name: 'Login to GCR'
+      uses: 'docker/login-action@v3'
+      with:
+        registry: us-docker.pkg.dev
+        username: oauth2accesstoken
+        password: '${{ steps.auth.outputs.access_token }}'
+
+    - name: 'Docker Build and Push'
+      uses: 'docker/build-push-action@v5'
+      with:
+        context: .
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: 'us-docker.pkg.dev/${{ steps.auth.outputs.project_id }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}/${{ github.event.repository.name }}:${{ github.sha }}'
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: artifact
+    if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'dev' || startsWith(github.ref_name, 'test/release-'))
+    environment: ${{ startsWith(github.ref_name, 'test/release-') && 'test' || github.ref_name }}_cd
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - name: 'Checkout Code'
+      uses: actions/checkout@v4
+
+    - id: 'auth'
+      name: 'Authenticate to Google Cloud'
+      uses: 'google-github-actions/auth@v2'
+      with:
+        token_format: 'access_token'
+        workload_identity_provider: '${{ secrets.WIF_PROVIDER_ZONA_SEGURA }}'
+        service_account: '${{ secrets.WIF_SERVICE_ACCOUNT_ZONA_SEGURA }}'
+
+    - name: 'Login to GCR'
+      uses: 'docker/login-action@v3'
+      with:
+        registry: us-docker.pkg.dev
+        username: oauth2accesstoken
+        password: '${{ steps.auth.outputs.access_token }}'
+
+    - id: 'deploy'
+      name: 'Deploy Cloud Run'
+      uses: 'google-github-actions/deploy-cloudrun@v2'
+      with:
+        image: 'us-docker.pkg.dev/${{ steps.auth.outputs.project_id }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}/${{ github.event.repository.name }}:${{ github.sha }}'
+        service: is-cr-${{ github.event.repository.name }}-${{ startsWith(github.ref_name, 'test/release-') && 'test' || github.ref_name }}
+        region: '${{ vars.GCP_REGION }}'
+
+    - name: 'Cloud Run URL'
+      run: 'echo "${{ steps.deploy.outputs.url }}"'
